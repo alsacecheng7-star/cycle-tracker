@@ -1,0 +1,1915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cycle Phase Tracker</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: linear-gradient(135deg, #fde8f0 0%, #fdf0f8 50%, #f8e8f8 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px 60px;
+      color: #5a3a4a;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 580px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .header .icon { font-size: 2.6rem; margin-bottom: 8px; }
+    .header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #c0537a;
+      letter-spacing: -0.3px;
+    }
+    .header p { font-size: 0.9rem; color: #9b6a7e; margin-top: 6px; }
+
+    /* Card */
+    .card {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 4px 30px rgba(192,83,122,0.1);
+      border: 1px solid rgba(255,255,255,0.7);
+      margin-bottom: 20px;
+    }
+    .card h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #c0537a;
+      margin-bottom: 18px;
+    }
+
+    /* Form */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: span 2; }
+    label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #9b6a7e;
+      letter-spacing: 0.3px;
+    }
+    input[type="text"], input[type="number"] {
+      padding: 10px 14px;
+      border: 1.5px solid #f0c0d8;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      color: #5a3a4a;
+      background: #fff8fb;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      font-family: inherit;
+      width: 100%;
+    }
+    input[type="text"]:focus, input[type="number"]:focus {
+      border-color: #c0537a;
+      box-shadow: 0 0 0 3px rgba(192,83,122,0.12);
+    }
+
+    /* Date picker wrapper */
+    .date-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .date-input-wrap input[type="text"] {
+      padding-right: 40px;
+    }
+    .date-hidden {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 0;
+      height: 0;
+      right: 36px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .cal-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 4px;
+      width: auto;
+      margin: 0;
+      line-height: 1;
+      color: #c0537a;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .cal-btn:hover { opacity: 1; }
+    .hint { font-size: 0.72rem; color: #b899a8; margin-top: 2px; }
+
+    button {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, #e8739a, #c0537a);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 18px;
+      letter-spacing: 0.2px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    button:hover { opacity: 0.92; }
+    button:active { transform: scale(0.99); }
+
+    /* Error */
+    .error {
+      background: #ffe8ee;
+      border: 1.5px solid #f5b8cb;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      color: #b03060;
+      margin-top: 14px;
+      display: none;
+    }
+
+    #results { display: none; }
+
+    /* Summary strip */
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .strip-item {
+      background: rgba(255,255,255,0.82);
+      border: 1px solid rgba(255,255,255,0.7);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 16px 12px;
+      text-align: center;
+      box-shadow: 0 2px 12px rgba(192,83,122,0.08);
+    }
+    .strip-item .val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #c0537a;
+      line-height: 1;
+    }
+    .strip-item .lbl {
+      font-size: 0.7rem;
+      color: #9b6a7e;
+      margin-top: 4px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Phase banner */
+    .phase-banner {
+      border-radius: 20px;
+      padding: 24px 24px 20px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .phase-banner::before {
+      content: '';
+      position: absolute;
+      top: -30px; right: -30px;
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      opacity: 0.15;
+      background: white;
+    }
+    .phase-banner .phase-day-badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.35);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: white;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .phase-banner h3 { font-size: 1.45rem; font-weight: 700; color: white; margin-bottom: 6px; }
+    .phase-banner .phase-tagline { font-size: 0.85rem; color: rgba(255,255,255,0.88); line-height: 1.5; }
+    .phase-power1   { background: linear-gradient(135deg, #f4a0bc, #e0739a); }
+    .phase-manifest { background: linear-gradient(135deg, #f0789a, #c84070); }
+    .phase-power2   { background: linear-gradient(135deg, #c890d8, #a060b8); }
+    .phase-nurture  { background: linear-gradient(135deg, #f0b0cc, #d87098); }
+
+    /* Rec cards — 3 per row on wide, 1 col stacked */
+    .rec-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 500px) {
+      .rec-grid { grid-template-columns: 1fr; }
+    }
+    .rec-card {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 18px 16px;
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 2px 12px rgba(192,83,122,0.08);
+    }
+    .rec-card .rec-icon { font-size: 1.4rem; margin-bottom: 8px; }
+    .rec-card .rec-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #c0537a;
+      margin-bottom: 6px;
+    }
+    .rec-card .rec-value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #5a3a4a;
+      margin-bottom: 4px;
+    }
+    .rec-card .rec-note { font-size: 0.76rem; color: #9b6a7e; line-height: 1.45; }
+
+    /* Diet style card — full width, accent border */
+    .diet-card {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 20px 20px;
+      border: 1.5px solid rgba(192,83,122,0.18);
+      box-shadow: 0 2px 12px rgba(192,83,122,0.08);
+      margin-bottom: 20px;
+    }
+    .diet-card .diet-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .diet-card .diet-icon { font-size: 1.4rem; }
+    .diet-card .diet-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #c0537a;
+    }
+    .diet-card .diet-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #5a3a4a;
+      margin-bottom: 6px;
+    }
+    .diet-card .diet-desc { font-size: 0.82rem; color: #9b6a7e; line-height: 1.55; }
+    .diet-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 12px;
+    }
+    .diet-pill {
+      background: rgba(240,176,204,0.25);
+      border: 1px solid rgba(192,83,122,0.18);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #b04068;
+    }
+
+    /* Fasting breakdown table */
+    .fasting-breakdown {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 2px 12px rgba(192,83,122,0.08);
+      margin-bottom: 20px;
+    }
+    .fasting-breakdown h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #c0537a;
+      margin-bottom: 14px;
+    }
+    .fast-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+    }
+    .fast-row.today {
+      background: linear-gradient(135deg, rgba(224,115,154,0.14), rgba(192,83,122,0.08));
+      border: 1.5px solid rgba(192,83,122,0.22);
+    }
+    .fast-row:not(.today) { background: rgba(253,240,248,0.5); }
+    .fast-days {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #b899a8;
+      min-width: 60px;
+    }
+    .fast-type {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #5a3a4a;
+      flex: 1;
+    }
+    .fast-hours {
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: #c0537a;
+    }
+    .today .fast-days, .today .fast-type { color: #c0537a; }
+    .today-tag {
+      background: #c0537a;
+      color: white;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .no-fast-note {
+      font-size: 0.82rem;
+      color: #9b6a7e;
+      line-height: 1.5;
+      padding: 10px 12px;
+      background: rgba(253,240,248,0.6);
+      border-radius: 10px;
+    }
+
+    /* Phase timeline */
+    .timeline-card {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 22px 24px;
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 2px 12px rgba(192,83,122,0.08);
+    }
+    .timeline-card h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #c0537a;
+      margin-bottom: 16px;
+    }
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    .timeline-row.active {
+      background: linear-gradient(135deg, rgba(224,115,154,0.12), rgba(192,83,122,0.08));
+      border: 1.5px solid rgba(192,83,122,0.2);
+    }
+    .timeline-row:not(.active) { background: rgba(253,240,248,0.5); }
+    .tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .tl-days { font-size: 0.72rem; font-weight: 700; color: #b899a8; min-width: 50px; }
+    .tl-info { flex: 1; }
+    .tl-name { font-size: 0.86rem; font-weight: 600; color: #5a3a4a; }
+    .tl-diet { font-size: 0.7rem; color: #b899a8; margin-top: 1px; }
+    .tl-right { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+    .tl-dates { font-size: 0.7rem; color: #b899a8; text-align: right; }
+    .active .tl-name { color: #c0537a; }
+    .active .tl-days { color: #c0537a; }
+    .active-tag {
+      background: #c0537a;
+      color: white;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .next-period-note {
+      margin-top: 14px;
+      padding: 10px 14px;
+      background: rgba(240,176,204,0.2);
+      border-radius: 10px;
+      font-size: 0.8rem;
+      color: #9b6a7e;
+      text-align: center;
+    }
+    .next-period-note strong { color: #c0537a; }
+
+    /* Previous period inputs */
+    .prev-section {
+      margin-top: 18px;
+      border-top: 1px solid #f0c0d8;
+      padding-top: 16px;
+    }
+    .prev-header { margin-bottom: 12px; }
+    .prev-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #9b6a7e;
+      letter-spacing: 0.3px;
+    }
+    .prev-sub {
+      display: block;
+      font-size: 0.72rem;
+      color: #b899a8;
+      margin-top: 2px;
+    }
+    .prev-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .prev-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: #f0c0d8;
+      color: #c0537a;
+      font-size: 0.7rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .prev-date-input {
+      flex: 1;
+      padding: 9px 14px;
+      border: 1.5px solid #f0c0d8;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      color: #5a3a4a;
+      background: #fff8fb;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      font-family: inherit;
+    }
+    .prev-date-input:focus {
+      border-color: #c0537a;
+      box-shadow: 0 0 0 3px rgba(192,83,122,0.12);
+    }
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #d8a0b8;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+      width: auto;
+      margin-top: 0;
+      transition: color 0.2s;
+    }
+    .remove-btn:hover { color: #c0537a; }
+    .add-btn {
+      background: none;
+      border: 1.5px dashed #f0c0d8;
+      color: #c0537a;
+      border-radius: 12px;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 4px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .add-btn:hover { background: rgba(240,192,216,0.15); border-color: #c0537a; }
+    .add-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* Body metrics section */
+    .metrics-section {
+      margin-top: 18px;
+      border-top: 1px solid #f0c0d8;
+      padding-top: 16px;
+    }
+    .metrics-header { margin-bottom: 12px; }
+    .metrics-label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #9b6a7e;
+      letter-spacing: 0.3px;
+    }
+    .metrics-sub {
+      display: block;
+      font-size: 0.72rem;
+      color: #b899a8;
+      margin-top: 2px;
+    }
+    /* BMI badge in summary strip */
+    .bmi-badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .bmi-under  { background: #fde8f0; color: #c0537a; }
+    .bmi-normal { background: #e8f8e8; color: #3a8a5a; }
+    .bmi-over   { background: #fff3e0; color: #b06020; }
+    .bmi-obese  { background: #fde8e8; color: #b03030; }
+    /* Personalised kcal note on meal */
+    .personalised-note {
+      font-size: 0.7rem;
+      color: #9b6a7e;
+      font-style: italic;
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    /* ── Workout Plan ── */
+    .workout-card {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 22px 24px;
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 2px 12px rgba(192,83,122,0.08);
+      margin-bottom: 20px;
+    }
+    .workout-card > h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #c0537a;
+      margin-bottom: 16px;
+    }
+    .workout-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .workout-icon {
+      font-size: 2rem;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .workout-meta { flex: 1; }
+    .workout-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #5a3a4a;
+      margin-bottom: 3px;
+    }
+    .workout-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .workout-badge {
+      background: rgba(240,176,204,0.25);
+      border: 1px solid rgba(192,83,122,0.18);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #b04068;
+    }
+    .workout-note {
+      font-size: 0.8rem;
+      color: #9b6a7e;
+      line-height: 1.5;
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background: rgba(253,240,248,0.7);
+      border-radius: 10px;
+      border-left: 3px solid #f0b0cc;
+    }
+    .exercise-list { display: flex; flex-direction: column; gap: 8px; }
+    .exercise-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(253,240,248,0.5);
+      border-radius: 10px;
+      border: 1px solid rgba(240,192,216,0.25);
+    }
+    .ex-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #f4a0bc, #c0537a);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .ex-name {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: #5a3a4a;
+      flex: 1;
+    }
+    .ex-detail {
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #c0537a;
+      white-space: nowrap;
+    }
+    .ex-tip {
+      font-size: 0.7rem;
+      color: #b899a8;
+      margin-top: 1px;
+    }
+    .ex-body { flex: 1; }
+
+    /* ── Daily Menu ── */
+    .menu-card {
+      background: rgba(255,255,255,0.82);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 22px 24px;
+      border: 1px solid rgba(255,255,255,0.7);
+      box-shadow: 0 2px 12px rgba(192,83,122,0.08);
+      margin-bottom: 20px;
+    }
+    .menu-card > h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #c0537a;
+      margin-bottom: 16px;
+    }
+    .meal-item {
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+      background: rgba(253,240,248,0.6);
+      border: 1px solid rgba(240,192,216,0.3);
+      transition: opacity 0.2s;
+    }
+    .meal-item:last-of-type { margin-bottom: 0; }
+    .meal-item.removed {
+      background: rgba(245,235,240,0.35);
+      border-style: dashed;
+      opacity: 0.7;
+    }
+    .meal-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .meal-emoji { font-size: 1.3rem; flex-shrink: 0; }
+    .meal-meta { flex: 1; }
+    .meal-time {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #c0537a;
+    }
+    .meal-name {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #5a3a4a;
+      margin-top: 1px;
+    }
+    .meal-cal {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #c0537a;
+      white-space: nowrap;
+    }
+    .meal-remove-btn {
+      background: none;
+      border: 1.5px solid #f0c0d8;
+      border-radius: 8px;
+      color: #c0537a;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      cursor: pointer;
+      width: auto;
+      margin: 0;
+      flex-shrink: 0;
+      transition: background 0.15s, color 0.15s;
+      letter-spacing: 0.3px;
+    }
+    .meal-remove-btn:hover { background: #f0c0d8; }
+    .meal-remove-btn.restore {
+      border-color: #c890d8;
+      color: #a060b8;
+    }
+    .meal-remove-btn.restore:hover { background: rgba(200,144,216,0.2); }
+    .meal-removed-body {
+      font-size: 0.78rem;
+      color: #b899a8;
+      font-style: italic;
+      margin-top: 4px;
+    }
+    .meal-ingredients {
+      font-size: 0.76rem;
+      color: #9b6a7e;
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    /* Macro bar */
+    .macro-bar-wrap { margin-bottom: 8px; }
+    .macro-bar-track {
+      height: 8px;
+      border-radius: 99px;
+      background: #f0d8e8;
+      overflow: hidden;
+      display: flex;
+    }
+    .macro-seg {
+      height: 100%;
+      transition: width 0.4s ease;
+    }
+    .seg-protein { background: #e8739a; }
+    .seg-carbs   { background: #c890d8; }
+    .seg-fat     { background: #f4b860; }
+
+    /* Macro badges row */
+    .macro-badges {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .macro-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #5a3a4a;
+    }
+    .badge-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .badge-val { color: #5a3a4a; }
+    .badge-lbl { color: #b899a8; font-weight: 500; }
+
+    /* Daily totals row */
+    .daily-totals {
+      margin-top: 16px;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, rgba(224,115,154,0.1), rgba(192,83,122,0.06));
+      border-radius: 14px;
+      border: 1.5px solid rgba(192,83,122,0.15);
+    }
+    .daily-totals-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .daily-totals-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #c0537a;
+    }
+    .daily-totals-kcal {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #c0537a;
+    }
+    .macro-legend {
+      display: flex;
+      gap: 14px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+    .macro-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: #5a3a4a;
+    }
+    .macro-legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .macro-legend-lbl { color: #b899a8; font-weight: 500; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="icon">🌸</div>
+    <h1>Cycle Phase Tracker</h1>
+    <p>Understand your hormonal cycle and optimise your health</p>
+  </div>
+
+  <!-- Input card -->
+  <div class="card">
+    <h2>Your Last Menstruation Cycle</h2>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="startDate">Menstruation Cycle Start Date</label>
+        <div class="date-input-wrap">
+          <input type="text" id="startDate" placeholder="DD/MM/YYYY" maxlength="10" oninput="syncToHidden('startDate')" />
+          <input type="date" id="startDate_picker" class="date-hidden" onchange="syncFromHidden('startDate_picker','startDate')" />
+          <button type="button" class="cal-btn" onclick="openPicker('startDate_picker')" tabindex="-1">📅</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="endDate">Menstruation Cycle End Date</label>
+        <div class="date-input-wrap">
+          <input type="text" id="endDate" placeholder="DD/MM/YYYY" maxlength="10" oninput="syncToHidden('endDate')" />
+          <input type="date" id="endDate_picker" class="date-hidden" onchange="syncFromHidden('endDate_picker','endDate')" />
+          <button type="button" class="cal-btn" onclick="openPicker('endDate_picker')" tabindex="-1">📅</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="prev-section">
+      <div class="prev-header">
+        <span class="prev-label">Previous Menstruation Cycle Start Dates</span>
+        <span class="prev-sub">First day of bleeding for each previous menstruation cycle — used to calculate your average cycle length. Enter in any order.</span>
+      </div>
+      <div id="prevDatesContainer">
+        <div class="prev-row" id="prevRow0">
+          <div class="prev-num">1</div>
+          <div class="date-input-wrap" style="flex:1">
+            <input type="text" class="prev-date-input" id="prev0" placeholder="DD/MM/YYYY" maxlength="10" oninput="syncToHidden('prev0')" />
+            <input type="date" id="prev0_picker" class="date-hidden" onchange="syncFromHidden('prev0_picker','prev0')" />
+            <button type="button" class="cal-btn" onclick="openPicker('prev0_picker')" tabindex="-1">📅</button>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="add-btn" id="addPrevBtn" onclick="addPrevField()">+ Add another previous menstruation cycle</button>
+      <span class="hint" style="display:block;margin-top:6px;">Add up to 3 previous start dates for a more accurate average. Leave blank to default to 28 days.</span>
+    </div>
+
+    <div class="metrics-section">
+      <div class="metrics-header">
+        <span class="metrics-label">Your Body Metrics <span style="font-weight:400;color:#b899a8">(optional)</span></span>
+        <span class="metrics-sub">Used to personalise your calorie targets and workout plan</span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="weightKg">Weight (kg)</label>
+          <input type="number" id="weightKg" placeholder="e.g. 60" min="30" max="200" />
+        </div>
+        <div class="form-group">
+          <label for="heightCm">Height (cm)</label>
+          <input type="number" id="heightCm" placeholder="e.g. 165" min="100" max="220" />
+        </div>
+        <div class="form-group full">
+          <label for="ageYrs">Age (years)</label>
+          <input type="number" id="ageYrs" placeholder="e.g. 30" min="12" max="80" />
+        </div>
+      </div>
+    </div>
+
+    <div class="error" id="errorMsg"></div>
+    <button onclick="calculate()">Calculate My Phase</button>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <!-- Summary strip -->
+    <div class="summary-strip">
+      <div class="strip-item">
+        <div class="val" id="resPeriodDays">—</div>
+        <div class="lbl">Period Days</div>
+      </div>
+      <div class="strip-item">
+        <div class="val" id="resCycleDay">—</div>
+        <div class="lbl">Cycle Day</div>
+      </div>
+      <div class="strip-item">
+        <div class="val" id="resCycleLen">—</div>
+        <div class="lbl" id="resCycleLenLbl">Cycle Length</div>
+      </div>
+      <div class="strip-item" id="bmiStrip" style="display:none">
+        <div class="val" id="resBmi">—</div>
+        <div class="lbl">BMI</div>
+        <div id="resBmiLabel"></div>
+      </div>
+    </div>
+
+    <!-- Phase banner -->
+    <div class="phase-banner" id="phaseBanner">
+      <div class="phase-day-badge" id="phaseDayRange"></div>
+      <h3 id="phaseName"></h3>
+      <div class="phase-tagline" id="phaseTagline"></div>
+    </div>
+
+    <!-- 3 rec cards: fasting today / training / diet style -->
+    <div class="rec-grid">
+      <div class="rec-card">
+        <div class="rec-icon">⏱️</div>
+        <div class="rec-title">Fasting Today</div>
+        <div class="rec-value" id="fastingValue"></div>
+        <div class="rec-note" id="fastingNote"></div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-icon">🏋️</div>
+        <div class="rec-title">Training Focus</div>
+        <div class="rec-value" id="trainingValue"></div>
+        <div class="rec-note" id="trainingNote"></div>
+      </div>
+      <div class="rec-card">
+        <div class="rec-icon">🥑</div>
+        <div class="rec-title">Diet Style</div>
+        <div class="rec-value" id="dietStyleShort"></div>
+        <div class="rec-note" id="dietStyleShortNote"></div>
+      </div>
+    </div>
+
+    <!-- Dietary style detail -->
+    <div class="diet-card" id="dietCard">
+      <div class="diet-header">
+        <div class="diet-icon" id="dietIcon"></div>
+        <div class="diet-label">Recommended Dietary Style</div>
+      </div>
+      <div class="diet-name" id="dietName"></div>
+      <div class="diet-desc" id="dietDesc"></div>
+      <div class="diet-pills" id="dietPills"></div>
+    </div>
+
+    <!-- Fasting schedule breakdown -->
+    <div class="fasting-breakdown">
+      <h2>Fasting Schedule This Phase</h2>
+      <div id="fastingSchedule"></div>
+    </div>
+
+    <!-- Workout Plan -->
+    <div class="workout-card">
+      <h2>Today's Workout Plan</h2>
+      <div id="workoutContent"></div>
+    </div>
+
+    <!-- Daily Menu -->
+    <div class="menu-card">
+      <h2>Recommended Daily Menu</h2>
+      <div id="menuMeals"></div>
+      <div class="daily-totals" id="dailyTotals"></div>
+    </div>
+
+    <!-- Cycle timeline -->
+    <div class="timeline-card">
+      <h2>Your Cycle at a Glance</h2>
+      <div id="timelineRows"></div>
+      <div class="next-period-note" id="nextPeriodNote"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const PHASES = [
+    {
+      id: 'power1',
+      name: 'Power Phase 1',
+      days: [1, 10],
+      tagline: 'Estrogen builds gradually — prime time for a metabolic reset and laying a strong foundation.',
+      dotColor: '#f4a0bc',
+      bannerClass: 'phase-power1',
+      training: {
+        value: 'Lower Intensity',
+        note: 'Prioritise lower training loads with longer recovery periods built in.',
+      },
+      diet: {
+        name: 'Ketobiotic',
+        icon: '🥑',
+        shortNote: 'Low carb, high good fats',
+        desc: 'Keep insulin low and support rising estrogen with a ketogenic + probiotic approach. Focus on low-carbohydrate, moderate-protein, and high-quality fat foods alongside probiotic-rich fermented foods.',
+        pills: ['Avocado', 'Olive oil', 'Fatty fish', 'Nuts & seeds', 'Leafy greens', 'Fermented foods', 'Low-sugar berries'],
+      },
+      activityFactor: 1.375, // lightly active
+      fastingSchedule: [
+        { dayRange: 'Days 1–4', type: 'Intermittent Fasting', hours: 13 },
+        { dayRange: 'Day 5',    type: 'Intermittent Fasting', hours: 15 },
+        { dayRange: 'Days 6–10', type: 'Autophagy Fasting',   hours: 17 },
+      ],
+      workout: [
+        {
+          dayRange: 'Days 1–2', icon: '🧘',
+          name: 'Restorative Flow', duration: '30 min', intensity: 'Very Low',
+          note: 'Honour your body during bleeding. Focus on breath, release tension, and let your body rest.',
+          exercises: [
+            { name: 'Diaphragmatic Breathing',  detail: '5 min',      tip: 'Inhale 4 counts, exhale 6 counts' },
+            { name: 'Child\'s Pose',             detail: '3 × 60 sec', tip: 'Wide knees, arms extended' },
+            { name: 'Supine Spinal Twist',       detail: '60 sec/side', tip: 'Keep shoulders flat on the floor' },
+            { name: 'Cat-Cow Stretch',           detail: '3 × 10 reps', tip: 'Slow, breath-led movement' },
+            { name: 'Legs Up the Wall',          detail: '5 min',      tip: 'Elevates hips, relieves cramping' },
+            { name: 'Savasana',                  detail: '5 min',      tip: 'Full body relaxation' },
+          ],
+        },
+        {
+          dayRange: 'Days 3–4', icon: '🚶',
+          name: 'Gentle Walk & Mobility', duration: '40 min', intensity: 'Low',
+          note: 'Aim for circulation and joint mobility — not exertion. Keep your heart rate conversational.',
+          exercises: [
+            { name: 'Brisk Walk',                detail: '20 min',     tip: 'Comfortable, easy pace' },
+            { name: 'Hip Circles',               detail: '10 each way', tip: 'Hands on hips, slow and controlled' },
+            { name: 'Leg Swings (front & side)', detail: '10 each leg', tip: 'Hold a wall for balance' },
+            { name: 'Shoulder Rolls',            detail: '10 each way', tip: 'Full range of motion' },
+            { name: 'Neck Side Stretch',         detail: '30 sec/side', tip: 'Gentle, no pulling' },
+            { name: 'Standing Quad Stretch',     detail: '30 sec/leg',  tip: 'Use wall for balance if needed' },
+          ],
+        },
+        {
+          dayRange: 'Days 5–7', icon: '💪',
+          name: 'Bodyweight Circuit', duration: '45 min', intensity: 'Moderate',
+          note: 'Energy is returning. Build momentum with bodyweight movement and controlled effort.',
+          exercises: [
+            { name: 'Warm-up Walk / March',      detail: '5 min',      tip: '' },
+            { name: 'Bodyweight Squat',          detail: '3 × 15',     tip: 'Drive through heels, chest tall' },
+            { name: 'Push-ups',                  detail: '3 × 10',     tip: 'Knee or full — keep core tight' },
+            { name: 'Glute Bridge',              detail: '3 × 15',     tip: 'Squeeze at the top, hold 1 sec' },
+            { name: 'Reverse Lunge',             detail: '3 × 10/leg', tip: 'Back knee hovers, don\'t slam down' },
+            { name: 'Plank Hold',                detail: '3 × 30 sec', tip: 'Neutral spine, breathe steadily' },
+            { name: 'Cool-down Stretch',         detail: '10 min',     tip: 'Hip flexors, hamstrings, chest' },
+          ],
+        },
+        {
+          dayRange: 'Days 8–10', icon: '🏋️',
+          name: 'Light Resistance Training', duration: '50 min', intensity: 'Moderate',
+          note: 'Introduce light weights. Prioritise form over load — estrogen is rising and supporting recovery.',
+          exercises: [
+            { name: 'Warm-up',                        detail: '5 min',      tip: 'Dynamic stretches + marching' },
+            { name: 'Dumbbell Goblet Squat',          detail: '3 × 12',     tip: 'Light weight, full depth' },
+            { name: 'Dumbbell Romanian Deadlift',     detail: '3 × 12',     tip: 'Hinge at hip, soft knee' },
+            { name: 'Seated Dumbbell Shoulder Press', detail: '3 × 12',     tip: 'Core braced, no arching' },
+            { name: 'Bent-over Dumbbell Row',         detail: '3 × 12/arm', tip: 'Elbow drives back, not out' },
+            { name: 'Lateral Raises',                 detail: '3 × 12',     tip: 'Stop at shoulder height' },
+            { name: 'Dead Bug',                       detail: '3 × 10/side', tip: 'Lower back stays flat' },
+            { name: 'Cool-down Stretch',              detail: '10 min',     tip: '' },
+          ],
+        },
+      ],
+      menu: [
+        {
+          meal: 'Breakfast', icon: '🍳',
+          name: 'Avocado & Smoked Salmon Scramble',
+          ingredients: [{qty:3,unit:null,item:'eggs'},{qty:60,unit:'g',item:'smoked salmon'},{qty:0.5,unit:null,item:'avocado'},{qty:null,unit:null,item:'cherry tomatoes'},{qty:null,unit:null,item:'fresh dill'}],
+          macros: { protein: 32, carbs: 5, fat: 28, cal: 396 },
+        },
+        {
+          meal: 'Lunch', icon: '🥗',
+          name: 'Grilled Chicken & Walnut Salad',
+          ingredients: [{qty:120,unit:'g',item:'grilled chicken'},{qty:null,unit:null,item:'mixed greens'},{qty:null,unit:null,item:'cucumber'},{qty:20,unit:'g',item:'walnuts'},{qty:null,unit:null,item:'olive oil & lemon dressing'}],
+          macros: { protein: 40, carbs: 6, fat: 30, cal: 454 },
+        },
+        {
+          meal: 'Dinner', icon: '🍽️',
+          name: 'Baked Salmon with Buttered Broccoli',
+          ingredients: [{qty:150,unit:'g',item:'salmon fillet'},{qty:200,unit:'g',item:'broccoli'},{qty:1,unit:'tbsp',item:'butter'},{qty:null,unit:null,item:'garlic'},{qty:null,unit:null,item:'lemon zest'}],
+          macros: { protein: 34, carbs: 8, fat: 24, cal: 384 },
+        },
+      ],
+    },
+    {
+      id: 'manifest',
+      name: 'Manifestation Phase',
+      days: [11, 15],
+      tagline: 'Estrogen and testosterone peak — your body is primed for performance and connection.',
+      dotColor: '#f0789a',
+      bannerClass: 'phase-manifest',
+      training: {
+        value: 'High Intensity',
+        note: 'Best window for strength training and high-endurance events — your peak muscle-building opportunity.',
+      },
+      diet: {
+        name: 'Hormone Feasting',
+        icon: '🌾',
+        shortNote: 'Higher complex carbs',
+        desc: 'Support the liver and gut as they metabolise peaking estrogen and testosterone. Increase complex, nature-made carbohydrates to help clear excess hormones efficiently.',
+        pills: ['Sweet potato', 'Quinoa', 'Brown rice', 'Legumes', 'Cruciferous veg', 'Citrus fruit', 'Flaxseeds'],
+      },
+      activityFactor: 1.55, // moderately to very active
+      fastingSchedule: [
+        { dayRange: 'Days 11–15', type: 'Intermittent Fasting', hours: 13,
+          note: 'Keep fasts short — hormonal surges can release stored toxins and longer fasts may cause uncomfortable detox symptoms.' },
+      ],
+      workout: [
+        {
+          dayRange: 'Days 11–12', icon: '🏋️',
+          name: 'Heavy Compound Strength', duration: '60 min', intensity: 'High',
+          note: 'Peak estrogen and testosterone — your strongest window of the cycle. Push heavier loads with confidence.',
+          exercises: [
+            { name: 'Warm-up',               detail: '5 min',   tip: 'Activation drills + light cardio' },
+            { name: 'Barbell Back Squat',    detail: '4 × 8',   tip: 'Go heavy — this is your peak window' },
+            { name: 'Barbell Deadlift',      detail: '4 × 6',   tip: 'Full hip extension, brace hard' },
+            { name: 'Bench Press',           detail: '4 × 8',   tip: 'Control the eccentric' },
+            { name: 'Pull-ups / Lat Pulldown', detail: '4 × 8', tip: 'Full stretch at bottom' },
+            { name: 'Overhead Press',        detail: '3 × 10',  tip: 'Rib cage down, glutes squeezed' },
+            { name: 'Cool-down Stretch',     detail: '10 min',  tip: 'Thoracic + hip opener focus' },
+          ],
+        },
+        {
+          dayRange: 'Days 13–14', icon: '🔥',
+          name: 'HIIT + Endurance', duration: '50 min', intensity: 'Very High',
+          note: 'Cardiovascular efficiency is at its peak. Ideal for personal bests and high-endurance challenges.',
+          exercises: [
+            { name: 'Warm-up Jog',          detail: '5 min',        tip: 'Gradually raise heart rate' },
+            { name: 'HIIT Circuit × 4 rounds', detail: '',          tip: '45 sec rest between rounds' },
+            { name: '  Burpees',            detail: '10 reps',      tip: 'Full extension at top' },
+            { name: '  Jump Squats',        detail: '12 reps',      tip: 'Land softly, absorb through hips' },
+            { name: '  Mountain Climbers',  detail: '20 reps',      tip: 'Drive knees to chest fast' },
+            { name: '  High Knees',         detail: '30 sec',       tip: 'Pump arms, stay on balls of feet' },
+            { name: 'Steady-state Run/Cycle', detail: '15 min',     tip: 'Zone 3–4 effort' },
+            { name: 'Cool-down Stretch',    detail: '10 min',       tip: 'Quads, calves, hip flexors' },
+          ],
+        },
+        {
+          dayRange: 'Day 15', icon: '⚡',
+          name: 'Full Body Power', duration: '55 min', intensity: 'High',
+          note: 'Combine strength and power before transitioning into your luteal phase.',
+          exercises: [
+            { name: 'Warm-up',               detail: '5 min',   tip: '' },
+            { name: 'Squat to Press',        detail: '4 × 10',  tip: 'Fluid drive from squat to overhead' },
+            { name: 'Deadlift',              detail: '3 × 8',   tip: 'Moderate-heavy load' },
+            { name: 'Push-up to Renegade Row', detail: '3 × 10', tip: 'Wrists under shoulders' },
+            { name: 'Box Jumps / Jump Squats', detail: '4 × 8', tip: 'Full extension, controlled landing' },
+            { name: 'Kettlebell Swings',     detail: '3 × 15',  tip: 'Hinge — not a squat' },
+            { name: 'Plank Variations',      detail: '3 × 45 sec', tip: 'Side plank, forearm plank, up-down' },
+            { name: 'Cool-down Stretch',     detail: '10 min',  tip: '' },
+          ],
+        },
+      ],
+      menu: [
+        {
+          meal: 'Breakfast', icon: '🫙',
+          name: 'Greek Yogurt & Berry Quinoa Bowl',
+          ingredients: [{qty:150,unit:'g',item:'Greek yogurt'},{qty:0.25,unit:'cup',item:'cooked quinoa'},{qty:null,unit:null,item:'mixed berries'},{qty:1,unit:'tbsp',item:'flaxseeds'},{qty:null,unit:null,item:'drizzle of honey'}],
+          macros: { protein: 22, carbs: 46, fat: 6, cal: 330 },
+        },
+        {
+          meal: 'Lunch', icon: '🥣',
+          name: 'Brown Rice & Lentil Buddha Bowl',
+          ingredients: [{qty:0.5,unit:'cup',item:'brown rice'},{qty:0.5,unit:'cup',item:'lentils'},{qty:null,unit:null,item:'roasted broccoli'},{qty:null,unit:null,item:'shredded carrot'},{qty:null,unit:null,item:'tahini dressing'}],
+          macros: { protein: 20, carbs: 58, fat: 12, cal: 424 },
+        },
+        {
+          meal: 'Dinner', icon: '🍲',
+          name: 'Sweet Potato & Chickpea Curry',
+          ingredients: [{qty:1,unit:null,item:'sweet potato'},{qty:0.5,unit:'cup',item:'chickpeas'},{qty:null,unit:null,item:'baby spinach'},{qty:null,unit:null,item:'light coconut milk'},{qty:null,unit:null,item:'curry spices'},{qty:null,unit:null,item:'quinoa'}],
+          macros: { protein: 18, carbs: 62, fat: 12, cal: 436 },
+        },
+      ],
+    },
+    {
+      id: 'power2',
+      name: 'Power Phase 2',
+      days: [16, 19],
+      tagline: 'Progesterone rises — muscle tissue is at its most resilient and injury risk is lowest.',
+      dotColor: '#c890d8',
+      bannerClass: 'phase-power2',
+      training: {
+        value: 'Strength Focus',
+        note: 'Enhance strength training — tissues are highly damage-resistant and ACL injury risk is at its lowest.',
+      },
+      diet: {
+        name: 'Ketobiotic',
+        icon: '🥑',
+        shortNote: 'Low carb, high good fats',
+        desc: 'Return to a ketobiotic approach to support progesterone production and continued fat-burning. Keep insulin low with healthy fats and moderate protein.',
+        pills: ['Avocado', 'Olive oil', 'Eggs', 'Grass-fed meat', 'Nuts & seeds', 'Leafy greens', 'Fermented foods'],
+      },
+      activityFactor: 1.55, // moderately active
+      fastingSchedule: [
+        { dayRange: 'Days 16–19', type: 'Intermittent Fasting', hours: 15 },
+      ],
+      workout: [
+        {
+          dayRange: 'Days 16–17', icon: '🏋️',
+          name: 'Heavy Strength Training', duration: '60 min', intensity: 'High',
+          note: 'Muscle tissue is at its most resilient and ACL injury risk is lowest. Push heavy compound lifts with confidence.',
+          exercises: [
+            { name: 'Warm-up',                    detail: '5 min',    tip: 'Activation + mobility drills' },
+            { name: 'Barbell Back Squat',         detail: '4 × 6',    tip: 'Heavier than Phase 1 — test your strength' },
+            { name: 'Romanian Deadlift',          detail: '4 × 8',    tip: 'Controlled descent, feel the hamstring stretch' },
+            { name: 'Incline Dumbbell Press',     detail: '4 × 8',    tip: 'Full range, slow on the way down' },
+            { name: 'Weighted Pull-ups / Rows',   detail: '4 × 8',    tip: 'Add load if bodyweight feels easy' },
+            { name: 'Barbell Hip Thrust',         detail: '4 × 10',   tip: 'Drive hips fully, squeeze glutes at top' },
+            { name: 'Cool-down Stretch',          detail: '10 min',   tip: 'Hip flexors, glutes, lats' },
+          ],
+        },
+        {
+          dayRange: 'Days 18–19', icon: '💥',
+          name: 'Strength & Power', duration: '55 min', intensity: 'High',
+          note: 'Your tissues remain highly damage-resistant. Finish this phase strong before transitioning to nurture.',
+          exercises: [
+            { name: 'Warm-up',                    detail: '5 min',    tip: '' },
+            { name: 'Deadlift (heavy)',            detail: '5 × 5',    tip: 'Focus on maximal tension throughout' },
+            { name: 'Bulgarian Split Squat',      detail: '3 × 10/leg', tip: 'Rear foot elevated, torso upright' },
+            { name: 'Dumbbell Chest Press',       detail: '4 × 10',   tip: 'Neutral grip option for shoulders' },
+            { name: 'Band / Cable Pull-apart',    detail: '3 × 15',   tip: 'Scapular retraction, arms straight' },
+            { name: 'Plyometric Push-ups',        detail: '3 × 8',    tip: 'Explosive push, land softly' },
+            { name: 'Farmer\'s Carry',            detail: '3 × 30 m', tip: 'Heavy dumbbells, tall posture' },
+            { name: 'Cool-down Stretch',          detail: '10 min',   tip: '' },
+          ],
+        },
+      ],
+      menu: [
+        {
+          meal: 'Breakfast', icon: '🍳',
+          name: 'Kale & Feta Omelette',
+          ingredients: [{qty:3,unit:null,item:'eggs'},{qty:50,unit:'g',item:'kale'},{qty:30,unit:'g',item:'feta cheese'},{qty:0.5,unit:'tbsp',item:'olive oil'},{qty:null,unit:null,item:'black pepper'}],
+          macros: { protein: 26, carbs: 4, fat: 24, cal: 340 },
+        },
+        {
+          meal: 'Lunch', icon: '🥬',
+          name: 'Tuna & Avocado Lettuce Wraps',
+          ingredients: [{qty:120,unit:'g',item:'tuna'},{qty:0.5,unit:null,item:'avocado'},{qty:null,unit:null,item:'butter lettuce cups'},{qty:null,unit:null,item:'cucumber'},{qty:1,unit:'tbsp',item:'olive mayo'},{qty:null,unit:null,item:'capers'}],
+          macros: { protein: 36, carbs: 5, fat: 26, cal: 402 },
+        },
+        {
+          meal: 'Dinner', icon: '🥩',
+          name: 'Grass-fed Beef & Asparagus Stir-fry',
+          ingredients: [{qty:150,unit:'g',item:'beef strips'},{qty:150,unit:'g',item:'asparagus'},{qty:null,unit:null,item:'coconut aminos'},{qty:null,unit:null,item:'garlic'},{qty:null,unit:null,item:'ginger'},{qty:1,unit:'tbsp',item:'sesame oil'}],
+          macros: { protein: 38, carbs: 8, fat: 22, cal: 378 },
+        },
+      ],
+    },
+    {
+      id: 'nurture',
+      name: 'Nurture Phase',
+      days: [20, null],
+      tagline: 'Progesterone peaks then drops — your body needs rest, warmth, and nourishing foods.',
+      dotColor: '#f0b0cc',
+      bannerClass: 'phase-nurture',
+      training: {
+        value: 'Gentle Movement',
+        note: 'Shift away from high-intensity workouts. Favour yoga, walking, or gentle stretching.',
+      },
+      diet: {
+        name: 'Hormone Feasting',
+        icon: '🌾',
+        shortNote: 'Nurturing, anti-inflammatory',
+        desc: 'Your body becomes naturally more insulin resistant to produce the calming hormone progesterone — it needs higher glucose levels. Focus on warming, nutrient-dense whole foods to support this.',
+        pills: ['Root vegetables', 'Warm soups', 'Lentils', 'Dark chocolate', 'Leafy greens', 'Wholegrains', 'Magnesium-rich foods'],
+      },
+      activityFactor: 1.2, // sedentary / gentle movement
+      fastingSchedule: null, // no fasting
+      workout: [
+        {
+          dayRange: 'Days 20–23', icon: '🧘',
+          name: 'Yoga Flow & Walking', duration: '40 min', intensity: 'Low',
+          note: 'Progesterone rises and energy dips. Gentle movement supports mood and reduces bloating without taxing the body.',
+          exercises: [
+            { name: 'Morning Walk',         detail: '15 min',   tip: 'Easy pace, outdoors if possible' },
+            { name: 'Sun Salutations',      detail: '5 rounds', tip: 'Slow, breath-led flow' },
+            { name: 'Warrior I & II',       detail: '60 sec/side', tip: 'Ground through the back foot' },
+            { name: 'Pigeon Pose',          detail: '2 min/side', tip: 'Use a block under the hip if needed' },
+            { name: 'Seated Forward Fold',  detail: '2 min',    tip: 'Relax the spine, no forcing' },
+            { name: 'Savasana',             detail: '5 min',    tip: 'Full conscious relaxation' },
+          ],
+        },
+        {
+          dayRange: 'Days 24–28', icon: '🌿',
+          name: 'Restorative Movement', duration: '30 min', intensity: 'Very Low',
+          note: 'As your period approaches, prioritise rest and recovery. Gentle yin yoga and breathwork are ideal.',
+          exercises: [
+            { name: 'Supported Bridge Pose',      detail: '3 min',    tip: 'Block under sacrum, total release' },
+            { name: 'Reclined Butterfly',         detail: '3 min',    tip: 'Soles of feet together, arms wide' },
+            { name: 'Hip Opener Series',          detail: '2 min/side', tip: 'Low lunge, lizard, half pigeon' },
+            { name: 'Supine Spinal Twist',        detail: '2 min/side', tip: 'Let gravity do the work' },
+            { name: 'Box Breathing',              detail: '5 min',    tip: 'Inhale 4, hold 4, exhale 4, hold 4' },
+            { name: 'Savasana',                   detail: '5 min',    tip: 'Set an intention for your next cycle' },
+          ],
+        },
+      ],
+      menu: [
+        {
+          meal: 'Breakfast', icon: '🥣',
+          name: 'Cinnamon Banana Oat Bowl',
+          ingredients: [{qty:80,unit:'g',item:'rolled oats'},{qty:1,unit:null,item:'banana'},{qty:1,unit:'tbsp',item:'almond butter'},{qty:null,unit:null,item:'cinnamon'},{qty:1,unit:'tsp',item:'honey'},{qty:null,unit:null,item:'oat milk'}],
+          macros: { protein: 14, carbs: 54, fat: 12, cal: 384 },
+        },
+        {
+          meal: 'Lunch', icon: '🍜',
+          name: 'Red Lentil Soup with Rye Bread',
+          ingredients: [{qty:null,unit:null,item:'red lentils'},{qty:null,unit:null,item:'carrot'},{qty:null,unit:null,item:'celery'},{qty:null,unit:null,item:'tomato'},{qty:null,unit:null,item:'cumin'},{qty:2,unit:null,item:'slices rye bread'},{qty:null,unit:null,item:'drizzle olive oil'}],
+          macros: { protein: 20, carbs: 56, fat: 8, cal: 376 },
+        },
+        {
+          meal: 'Dinner', icon: '🫕',
+          name: 'Root Vegetable & White Bean Stew',
+          ingredients: [{qty:null,unit:null,item:'parsnip'},{qty:null,unit:null,item:'sweet potato'},{qty:null,unit:null,item:'butternut squash'},{qty:null,unit:null,item:'white beans'},{qty:null,unit:null,item:'kale'},{qty:null,unit:null,item:'vegetable broth'},{qty:null,unit:null,item:'thyme'}],
+          macros: { protein: 18, carbs: 58, fat: 8, cal: 380 },
+        },
+      ],
+    },
+  ];
+
+  function getDayFasting(phase, cycleDay) {
+    if (phase.id === 'nurture') {
+      return {
+        value: 'No fasting',
+        note: 'Fasting raises cortisol, which destroys progesterone production. Eat regular, nourishing meals this phase.',
+      };
+    }
+    // Find the specific bracket for today
+    for (const slot of phase.fastingSchedule) {
+      if (cycleInSlot(cycleDay, slot.dayRange)) {
+        return {
+          value: `${slot.hours} hours`,
+          note: `${slot.type}${slot.note ? ' — ' + slot.note : ''}`,
+        };
+      }
+    }
+    // fallback
+    const last = phase.fastingSchedule[phase.fastingSchedule.length - 1];
+    return { value: `${last.hours} hours`, note: last.type };
+  }
+
+  function cycleInSlot(day, rangeStr) {
+    // Parse "Days X–Y", "Day X", "Days X–Y"
+    const single = rangeStr.match(/^Day\s+(\d+)$/i);
+    if (single) return day === parseInt(single[1]);
+    const range = rangeStr.match(/Days\s+(\d+)[–\-](\d+)/i);
+    if (range) return day >= parseInt(range[1]) && day <= parseInt(range[2]);
+    return false;
+  }
+
+  function openPicker(pickerId) {
+    const picker = document.getElementById(pickerId);
+    try { picker.showPicker(); } catch(e) { picker.click(); }
+  }
+
+  function syncFromHidden(pickerId, textId) {
+    const picker = document.getElementById(pickerId);
+    if (!picker.value) return;
+    const [y, m, d] = picker.value.split('-');
+    document.getElementById(textId).value = `${d}/${m}/${y}`;
+  }
+
+  function syncToHidden(textId) {
+    const picker = document.getElementById(textId + '_picker');
+    if (!picker) return;
+    const parsed = parseLocalDate(document.getElementById(textId).value);
+    if (parsed) {
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, '0');
+      const d = String(parsed.getDate()).padStart(2, '0');
+      picker.value = `${y}-${m}-${d}`;
+    } else {
+      picker.value = '';
+    }
+  }
+
+  function parseLocalDate(str) {
+    // Accepts DD/MM/YYYY
+    const parts = str.trim().split('/');
+    if (parts.length !== 3) return null;
+    const [d, m, y] = parts.map(Number);
+    if (!d || !m || !y || y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) return null;
+    const date = new Date(y, m - 1, d);
+    // Guard against invalid dates like 31/02
+    if (date.getMonth() !== m - 1) return null;
+    return date;
+  }
+
+  function formatDate(date) {
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  }
+
+  function addDays(date, n) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+
+  function diffDays(a, b) {
+    return Math.round((b - a) / 86400000);
+  }
+
+  function getPhaseForDay(cycleDay, cycleLength) {
+    for (const p of PHASES) {
+      const end = p.days[1] === null ? cycleLength : p.days[1];
+      if (cycleDay >= p.days[0] && cycleDay <= end) return { phase: p, end };
+    }
+    return null;
+  }
+
+  let prevCount = 1;
+
+  // Menu state — persists across re-renders triggered by meal toggles
+  let _menuData  = null;
+  let _menuTdee  = null;
+  let _removedMeals = new Set();
+
+  function toggleMeal(idx) {
+    if (_removedMeals.has(idx)) {
+      _removedMeals.delete(idx);
+    } else {
+      if (_menuData.length - _removedMeals.size <= 1) return; // keep at least 1 meal
+      _removedMeals.add(idx);
+    }
+    renderMenu(_menuData, _menuTdee);
+  }
+  const MAX_PREV = 3;
+
+  function addPrevField() {
+    if (prevCount >= MAX_PREV) return;
+    const container = document.getElementById('prevDatesContainer');
+    const row = document.createElement('div');
+    row.className = 'prev-row';
+    row.id = `prevRow${prevCount}`;
+    const n = prevCount;
+    row.innerHTML = `
+      <div class="prev-num">${n + 1}</div>
+      <div class="date-input-wrap" style="flex:1">
+        <input type="text" class="prev-date-input" id="prev${n}" placeholder="DD/MM/YYYY" maxlength="10" oninput="syncToHidden('prev${n}')" />
+        <input type="date" id="prev${n}_picker" class="date-hidden" onchange="syncFromHidden('prev${n}_picker','prev${n}')" />
+        <button type="button" class="cal-btn" onclick="openPicker('prev${n}_picker')" tabindex="-1">📅</button>
+      </div>
+      <button type="button" class="remove-btn" onclick="removePrevField(${n})" title="Remove">×</button>
+    `;
+    container.appendChild(row);
+    prevCount++;
+    if (prevCount >= MAX_PREV) {
+      document.getElementById('addPrevBtn').disabled = true;
+    }
+  }
+
+  function removePrevField(idx) {
+    const row = document.getElementById(`prevRow${idx}`);
+    if (row) row.remove();
+    document.getElementById('addPrevBtn').disabled = false;
+    prevCount = Math.max(1, prevCount - 1);
+  }
+
+  function calcAverageCycleLength(currentStart) {
+    const inputs = document.querySelectorAll('.prev-date-input');
+    const dates = [];
+    for (const inp of inputs) {
+      if (!inp.value.trim()) continue;
+      const d = parseLocalDate(inp.value.trim());
+      if (!d) return { error: `"${inp.value}" is not a valid date — please use DD/MM/YYYY.` };
+      dates.push(d);
+    }
+    if (dates.length === 0) return { length: 28 };
+    // Sort all previous dates descending (most recent first) so entry order doesn't matter
+    dates.sort((a, b) => b - a);
+    // Build the full sequence: [currentStart, ...previousDates] descending
+    const sequence = [currentStart, ...dates];
+    const gaps = [];
+    for (let i = 0; i < sequence.length - 1; i++) {
+      const gap = diffDays(sequence[i + 1], sequence[i]);
+      if (gap > 0) gaps.push(gap);
+    }
+    if (gaps.length === 0) return { length: 28 };
+    return { length: Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length) };
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.style.display = 'block';
+    document.getElementById('results').style.display = 'none';
+  }
+
+  function hideError() {
+    document.getElementById('errorMsg').style.display = 'none';
+  }
+
+  function calculate() {
+    hideError();
+    _removedMeals = new Set(); // reset removed meals for new calculation
+
+    const startVal = document.getElementById('startDate').value.trim();
+    const endVal   = document.getElementById('endDate').value.trim();
+
+    if (!startVal || !endVal) {
+      showError('Please enter both the start and end date of your last menstruation cycle.');
+      return;
+    }
+
+    const startDate = parseLocalDate(startVal);
+    const endDate   = parseLocalDate(endVal);
+
+    if (!startDate) { showError('Period start date is invalid — please use DD/MM/YYYY.'); return; }
+    if (!endDate)   { showError('Period end date is invalid — please use DD/MM/YYYY.'); return; }
+
+    if (endDate < startDate) {
+      showError('Period end date must be on or after the start date.');
+      return;
+    }
+
+    const cycleLengthResult = calcAverageCycleLength(startDate);
+    if (cycleLengthResult.error) { showError(cycleLengthResult.error); return; }
+    const cycleLength = cycleLengthResult.length;
+    if (cycleLength < 20 || cycleLength > 45) {
+      showError(`Calculated cycle length (${cycleLength} days) seems unusual. Please check your previous menstruation cycle dates.`);
+      return;
+    }
+
+    const day1 = addDays(endDate, 1);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cycleDay = diffDays(day1, today) + 1;
+
+    if (cycleDay < 1) {
+      showError("Your period hasn't ended yet based on the dates entered — please update the end date.");
+      return;
+    }
+    if (cycleDay > cycleLength) {
+      showError(`Cycle day ${cycleDay} exceeds your cycle length of ${cycleLength} days. Your next period may have already started — please update your dates.`);
+      return;
+    }
+
+    const periodDays  = diffDays(startDate, endDate) + 1;
+    const phaseResult = getPhaseForDay(cycleDay, cycleLength);
+    const phase       = phaseResult.phase;
+
+    // Body metrics
+    const weight = parseFloat(document.getElementById('weightKg').value);
+    const height = parseFloat(document.getElementById('heightCm').value);
+    const age    = parseFloat(document.getElementById('ageYrs').value);
+    const hasMetrics = weight > 0 && height > 0 && age > 0;
+
+    let tdee = null;
+    let bmi  = null;
+    if (hasMetrics) {
+      const bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161; // Mifflin-St Jeor (female)
+      tdee = Math.round(bmr * phase.activityFactor);
+      bmi  = parseFloat((weight / ((height / 100) ** 2)).toFixed(1));
+    }
+
+    // Summary
+    const prevFilled = [...document.querySelectorAll('.prev-date-input')].some(i => i.value);
+    document.getElementById('resPeriodDays').textContent = periodDays;
+    document.getElementById('resCycleDay').textContent   = cycleDay;
+    document.getElementById('resCycleLen').textContent   = cycleLength;
+    document.getElementById('resCycleLenLbl').textContent = prevFilled ? 'Avg Cycle (calc)' : 'Cycle Length (default)';
+
+    // BMI strip
+    const bmiStrip = document.getElementById('bmiStrip');
+    if (hasMetrics) {
+      bmiStrip.style.display = '';
+      document.getElementById('resBmi').textContent = bmi;
+      const bmiInfo = bmi < 18.5 ? { cls: 'bmi-under',  label: 'Underweight' }
+                    : bmi < 25   ? { cls: 'bmi-normal', label: 'Healthy' }
+                    : bmi < 30   ? { cls: 'bmi-over',   label: 'Overweight' }
+                    :              { cls: 'bmi-obese',   label: 'Obese' };
+      document.getElementById('resBmiLabel').innerHTML = `<span class="bmi-badge ${bmiInfo.cls}">${bmiInfo.label}</span>`;
+    } else {
+      bmiStrip.style.display = 'none';
+    }
+
+    // Phase banner
+    const banner = document.getElementById('phaseBanner');
+    banner.className = 'phase-banner ' + phase.bannerClass;
+    const dayEnd = phase.days[1] === null ? cycleLength : phase.days[1];
+    document.getElementById('phaseDayRange').textContent = `Day ${phase.days[0]}–${dayEnd}`;
+    document.getElementById('phaseName').textContent     = phase.name;
+    document.getElementById('phaseTagline').textContent  = phase.tagline;
+
+    // Fasting rec card
+    const fastingToday = getDayFasting(phase, cycleDay);
+    document.getElementById('fastingValue').textContent = fastingToday.value;
+    document.getElementById('fastingNote').textContent  = fastingToday.note;
+
+    // Training rec card
+    document.getElementById('trainingValue').textContent = phase.training.value;
+    document.getElementById('trainingNote').textContent  = phase.training.note;
+
+    // Diet rec card (short)
+    document.getElementById('dietStyleShort').textContent     = phase.diet.name;
+    document.getElementById('dietStyleShortNote').textContent = phase.diet.shortNote;
+
+    // Diet detail card
+    document.getElementById('dietIcon').textContent = phase.diet.icon;
+    document.getElementById('dietName').textContent = phase.diet.name;
+    document.getElementById('dietDesc').textContent = phase.diet.desc;
+    const pillsEl = document.getElementById('dietPills');
+    pillsEl.innerHTML = '';
+    phase.diet.pills.forEach(p => {
+      const pill = document.createElement('span');
+      pill.className = 'diet-pill';
+      pill.textContent = p;
+      pillsEl.appendChild(pill);
+    });
+
+    // Fasting schedule breakdown
+    const schedEl = document.getElementById('fastingSchedule');
+    schedEl.innerHTML = '';
+    if (!phase.fastingSchedule) {
+      const note = document.createElement('div');
+      note.className = 'no-fast-note';
+      note.textContent = 'No fasting this phase. Fasting raises cortisol, which destroys progesterone production. Eat regular, nourishing meals and rest well.';
+      schedEl.appendChild(note);
+    } else {
+      phase.fastingSchedule.forEach(slot => {
+        const isToday = cycleInSlot(cycleDay, slot.dayRange);
+        const row = document.createElement('div');
+        row.className = 'fast-row' + (isToday ? ' today' : '');
+        row.innerHTML = `
+          <div class="fast-days">${slot.dayRange}</div>
+          <div class="fast-type">${slot.type}</div>
+          ${isToday ? '<span class="today-tag">Today</span>' : ''}
+          <div class="fast-hours">${slot.hours}h</div>
+        `;
+        schedEl.appendChild(row);
+      });
+    }
+
+    // Timeline
+    const nextPeriodStart = addDays(day1, cycleLength - 1);
+    const rows = document.getElementById('timelineRows');
+    rows.innerHTML = '';
+
+    PHASES.forEach(p => {
+      const phaseStart  = addDays(day1, p.days[0] - 1);
+      const phaseEndDay = p.days[1] === null ? cycleLength : p.days[1];
+      const phaseEnd    = addDays(day1, phaseEndDay - 1);
+      const isActive    = p.id === phase.id;
+
+      const row = document.createElement('div');
+      row.className = 'timeline-row' + (isActive ? ' active' : '');
+      row.innerHTML = `
+        <div class="tl-dot" style="background:${p.dotColor}"></div>
+        <div class="tl-days">Day ${p.days[0]}–${phaseEndDay}</div>
+        <div class="tl-info">
+          <div class="tl-name">${p.name}</div>
+          <div class="tl-diet">${p.diet.icon} ${p.diet.name}</div>
+        </div>
+        <div class="tl-right">
+          ${isActive ? '<span class="active-tag">Now</span>' : ''}
+          <div class="tl-dates">${formatDate(phaseStart)} – ${formatDate(phaseEnd)}</div>
+        </div>
+      `;
+      rows.appendChild(row);
+    });
+
+    // Workout plan
+    renderWorkout(phase.workout, cycleDay, bmi);
+
+    // Daily menu
+    renderMenu(phase.menu, tdee);
+
+    document.getElementById('nextPeriodNote').innerHTML =
+      `Next period expected around <strong>${formatDate(nextPeriodStart)}</strong>`;
+
+    document.getElementById('results').style.display = 'block';
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function formatQty(n) {
+    if (n <= 0) return '';
+    const FRACS = [[0.25,'¼'],[0.33,'⅓'],[0.5,'½'],[0.67,'⅔'],[0.75,'¾']];
+    const whole = Math.floor(n);
+    const frac  = n - whole;
+    for (const [val, sym] of FRACS) {
+      if (Math.abs(frac - val) < 0.1) return whole > 0 ? `${whole}${sym}` : sym;
+    }
+    if (n >= 10) return String(Math.round(n));
+    return String(Math.round(n * 10) / 10);
+  }
+
+  function formatIngredients(ingredients, sf) {
+    return ingredients.map(ing => {
+      if (ing.qty === null) return ing.item;
+      const qty  = formatQty(ing.qty * sf);
+      const unit = ing.unit ? ing.unit + ' ' : '';
+      return `${qty}${unit}${ing.item}`;
+    }).join(' · ');
+  }
+
+  function renderWorkout(workoutSchedule, cycleDay, bmi) {
+    const el = document.getElementById('workoutContent');
+    el.innerHTML = '';
+
+    // Find today's workout slot
+    let plan = workoutSchedule[workoutSchedule.length - 1]; // default to last slot
+    for (const w of workoutSchedule) {
+      if (cycleInSlot(cycleDay, w.dayRange)) { plan = w; break; }
+    }
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'workout-header';
+    header.innerHTML = `
+      <div class="workout-icon">${plan.icon}</div>
+      <div class="workout-meta">
+        <div class="workout-name">${plan.name}</div>
+        <div class="workout-badges">
+          <span class="workout-badge">⏱ ${plan.duration}</span>
+          <span class="workout-badge">⚡ ${plan.intensity} Intensity</span>
+        </div>
+      </div>
+    `;
+    el.appendChild(header);
+
+    // Note
+    if (plan.note) {
+      const note = document.createElement('div');
+      note.className = 'workout-note';
+      note.textContent = plan.note;
+      el.appendChild(note);
+    }
+
+    // BMI-based personalised note
+    if (bmi !== null) {
+      const bmiNote = bmi < 18.5
+        ? 'Your BMI suggests you may be underweight — prioritise adequate fueling before and after every session, and keep intensity conservative.'
+        : bmi < 25 ? null
+        : bmi < 30
+        ? 'Your BMI suggests replacing high-impact jumping movements with low-impact alternatives (e.g. jump squats → regular squats, burpees → step-back burpees). Focus on form over pace.'
+        : 'Your BMI suggests modifying all high-impact exercises to low-impact alternatives. Prioritise consistency and controlled movement over intensity.';
+      if (bmiNote) {
+        const pNote = document.createElement('div');
+        pNote.className = 'workout-note';
+        pNote.style.borderLeftColor = '#c890d8';
+        pNote.style.marginTop = '8px';
+        pNote.innerHTML = `<strong>Personalised note:</strong> ${bmiNote}`;
+        el.appendChild(pNote);
+      }
+    }
+
+    // Exercise list
+    const list = document.createElement('div');
+    list.className = 'exercise-list';
+    let num = 1;
+    plan.exercises.forEach(ex => {
+      const row = document.createElement('div');
+      row.className = 'exercise-row';
+      // Indent sub-items (HIIT circuit items starting with spaces)
+      const isSubItem = ex.name.startsWith('  ');
+      const displayName = ex.name.trim();
+      row.innerHTML = `
+        <div class="ex-num" style="${isSubItem ? 'background:linear-gradient(135deg,#f0b0cc,#d87098);font-size:0.6rem' : ''}">${isSubItem ? '↳' : num}</div>
+        <div class="ex-body">
+          <div class="ex-name">${displayName}</div>
+          ${ex.tip ? `<div class="ex-tip">${ex.tip}</div>` : ''}
+        </div>
+        ${ex.detail ? `<div class="ex-detail">${ex.detail}</div>` : ''}
+      `;
+      if (!isSubItem) num++;
+      list.appendChild(row);
+    });
+    el.appendChild(list);
+  }
+
+  function renderMenu(menu, tdee) {
+    _menuData = menu;
+    _menuTdee = tdee;
+
+    const mealsEl  = document.getElementById('menuMeals');
+    const totalsEl = document.getElementById('dailyTotals');
+    mealsEl.innerHTML = '';
+
+    // Total daily kcal target
+    const defaultDailyKcal = menu.reduce((s, m) => s + m.macros.cal, 0);
+    const targetKcal = tdee ? Math.min(Math.max(tdee, defaultDailyKcal * 0.5), defaultDailyKcal * 2.5) : defaultDailyKcal;
+
+    // Active meals only — redistribute target across them proportionally
+    const activeDefaultKcal = menu.reduce((s, m, i) => _removedMeals.has(i) ? s : s + m.macros.cal, 0);
+
+    let totP = 0, totC = 0, totF = 0, totCal = 0;
+
+    menu.forEach((item, idx) => {
+      const isRemoved = _removedMeals.has(idx);
+      const card = document.createElement('div');
+      card.className = 'meal-item' + (isRemoved ? ' removed' : '');
+
+      if (isRemoved) {
+        card.innerHTML = `
+          <div class="meal-header">
+            <div class="meal-emoji" style="opacity:0.4">${item.icon}</div>
+            <div class="meal-meta">
+              <div class="meal-time">${item.meal}</div>
+              <div class="meal-name" style="color:#b899a8">${item.name}</div>
+            </div>
+            <button class="meal-remove-btn restore" onclick="toggleMeal(${idx})">+ Restore</button>
+          </div>
+          <div class="meal-removed-body">This meal has been removed — its calories are redistributed to the remaining meals.</div>
+        `;
+        mealsEl.appendChild(card);
+        return;
+      }
+
+      // Scale this meal's macros: its share of the target kcal
+      const mealShare = activeDefaultKcal > 0 ? item.macros.cal / activeDefaultKcal : 1 / menu.length;
+      const mealTargetKcal = targetKcal * mealShare;
+      const sf = mealTargetKcal / item.macros.cal;
+      const macros = {
+        protein: Math.round(item.macros.protein * sf),
+        carbs:   Math.round(item.macros.carbs   * sf),
+        fat:     Math.round(item.macros.fat     * sf),
+        cal:     Math.round(item.macros.cal     * sf),
+      };
+      const { protein, carbs, fat, cal } = macros;
+
+      totP   += protein;
+      totC   += carbs;
+      totF   += fat;
+      totCal += cal;
+
+      const totalG = protein + carbs + fat;
+      const pPct = Math.round(protein / totalG * 100);
+      const cPct = Math.round(carbs   / totalG * 100);
+      const fPct = 100 - pPct - cPct;
+
+      const canRemove = menu.length - _removedMeals.size > 1;
+      card.innerHTML = `
+        <div class="meal-header">
+          <div class="meal-emoji">${item.icon}</div>
+          <div class="meal-meta">
+            <div class="meal-time">${item.meal}</div>
+            <div class="meal-name">${item.name}</div>
+          </div>
+          <div class="meal-cal">${cal} kcal</div>
+          ${canRemove ? `<button class="meal-remove-btn" onclick="toggleMeal(${idx})" title="Remove this meal">✕ Remove</button>` : ''}
+        </div>
+        <div class="meal-ingredients">${formatIngredients(item.ingredients, sf)}</div>
+        <div class="macro-bar-wrap">
+          <div class="macro-bar-track">
+            <div class="macro-seg seg-protein" style="width:${pPct}%"></div>
+            <div class="macro-seg seg-carbs"   style="width:${cPct}%"></div>
+            <div class="macro-seg seg-fat"     style="width:${fPct}%"></div>
+          </div>
+        </div>
+        <div class="macro-badges">
+          <div class="macro-badge"><div class="badge-dot" style="background:#e8739a"></div><span class="badge-val">${protein}g</span><span class="badge-lbl">protein</span></div>
+          <div class="macro-badge"><div class="badge-dot" style="background:#c890d8"></div><span class="badge-val">${carbs}g</span><span class="badge-lbl">carbs</span></div>
+          <div class="macro-badge"><div class="badge-dot" style="background:#f4b860"></div><span class="badge-val">${fat}g</span><span class="badge-lbl">fat</span></div>
+        </div>
+      `;
+      mealsEl.appendChild(card);
+    });
+
+    // Daily totals
+    const tTotal = totP + totC + totF;
+    const tpPct = Math.round(totP / tTotal * 100);
+    const tcPct = Math.round(totC / tTotal * 100);
+    const tfPct = 100 - tpPct - tcPct;
+
+    totalsEl.innerHTML = `
+      <div class="daily-totals-header">
+        <div class="daily-totals-title">Daily Totals</div>
+        <div class="daily-totals-kcal">${totCal} kcal</div>
+      </div>
+      <div class="macro-bar-track" style="height:10px;">
+        <div class="macro-seg seg-protein" style="width:${tpPct}%"></div>
+        <div class="macro-seg seg-carbs"   style="width:${tcPct}%"></div>
+        <div class="macro-seg seg-fat"     style="width:${tfPct}%"></div>
+      </div>
+      <div class="macro-legend">
+        <div class="macro-legend-item"><div class="macro-legend-dot" style="background:#e8739a"></div>${totP}g <span class="macro-legend-lbl">protein</span></div>
+        <div class="macro-legend-item"><div class="macro-legend-dot" style="background:#c890d8"></div>${totC}g <span class="macro-legend-lbl">carbs</span></div>
+        <div class="macro-legend-item"><div class="macro-legend-dot" style="background:#f4b860"></div>${totF}g <span class="macro-legend-lbl">fat</span></div>
+      </div>
+      ${tdee ? `<div class="personalised-note">✦ Calories personalised to your body metrics (TDEE: ${tdee} kcal)</div>` : ''}
+    `;
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') calculate(); });
+</script>
+</body>
+</html>
